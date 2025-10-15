@@ -169,7 +169,7 @@ export default function Header() {
                         setting.action();
                         handleCloseUserMenu();
                       }}
-                      sx={{ gap: 1, mb: .5}}
+                      sx={{ gap: 1, mb: 0.5 }}
                     >
                       {setting.icon}
                       <Typography sx={{ textAlign: "center" }}>
@@ -180,7 +180,15 @@ export default function Header() {
                 </Menu>
               </>
             ) : (
-              <Button onClick={() => signInWithGithub()} variant="outlined" size="medium"><GitHub />Ingresar con GitHub</Button>
+              <Button
+                onClick={() => signInWithGithub()}
+                variant="outlined"
+                size="medium"
+                startIcon={<GitHub />}
+                disableIconAnimation
+              >
+                Ingresar con GitHub
+              </Button>
             )}
           </Box>
         </Toolbar>

@@ -7,6 +7,7 @@ export interface CourseInterface {
   name: string;
   owner_id: string; // Cambiado a string para UUID
   created_at: string; // TIMESTAMP como string, o usa Date si parseas
+  slug: string; // Agrega slug
 }
 
 export interface StudentInterface {
@@ -14,6 +15,7 @@ export interface StudentInterface {
   first_name: string;
   last_name: string;
   cell: string | null;
+  photo_url: string;
   course_id: string;
 }
 
@@ -44,23 +46,55 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({
   const refreshCourses = async () => {
     if (!user?.id) return;
 
-    const { data, error } = await supabase
+    // Fetch owned courses
+    const { data: owned, error: ownedError } = await supabase
       .from("courses")
       .select("*")
-      .or(
-        `owner_id.eq.${user.id},id.in.(SELECT course_id FROM course_shares WHERE user_id = '${user.id}')`
-      )
+      .eq("owner_id", user.id)
       .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error("Error fetching courses:", error);
-      return;
+    if (ownedError) {
+      console.error("Error fetching owned courses:", ownedError);
     }
 
-    setCourses(data || []);
+    // Fetch shared course IDs
+    const { data: sharedIds, error: sharedError } = await supabase
+      .from("course_shares")
+      .select("course_id")
+      .eq("user_id", user.id);
+
+    if (sharedError) {
+      console.error("Error fetching shared IDs:", sharedError);
+    }
+
+    let shared: CourseInterface[] = [];
+    const safeSharedIds = sharedIds ?? [];
+    if (safeSharedIds.length > 0) {
+      const courseIds = safeSharedIds.map((s) => s.course_id);
+      const { data: sharedCourses, error: sharedCoursesError } = await supabase
+        .from("courses")
+        .select("*")
+        .in("id", courseIds)
+        .order("created_at", { ascending: false });
+
+      if (sharedCoursesError) {
+        console.error("Error fetching shared courses:", sharedCoursesError);
+      } else {
+        shared = sharedCourses || [];
+      }
+    }
+
+    // Combina y elimina duplicates (por si owner se comparte a sí mismo)
+    const allCourses = [...(owned || []), ...shared];
+    const uniqueCourses = allCourses.filter(
+      (course, index, self) =>
+        index === self.findIndex((c) => c.id === course.id)
+    );
+
+    setCourses(uniqueCourses);
     // Si no hay curso actual, setea el primero por default
-    if (!currentCourse && data?.length > 0) {
-      setCurrentCourse(data[0]);
+    if (!currentCourse && uniqueCourses.length > 0) {
+      setCurrentCourse(uniqueCourses[0]);
     }
   };
 

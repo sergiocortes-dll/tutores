@@ -1,7 +1,8 @@
 import { AddRounded, ArrowBack } from "@mui/icons-material";
+import { Select, type SelectChangeEvent } from "@mui/material";
 import { Box, Button, Paper } from "@u_ui/u-ui";
-import { Link, useLocation } from "react-router-dom";
-import type { CourseInterface } from '../../context/DashboardContext';
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useDashboard, type CourseInterface } from '../../context/DashboardContext';
 
 interface HeaderDashboardProps {
   courses: CourseInterface[];
@@ -9,7 +10,24 @@ interface HeaderDashboardProps {
 
 export default function HeaderDashboard({ courses }: HeaderDashboardProps) {
   const location = useLocation();
-  console.log(courses);
+  const navigate = useNavigate();
+
+  const { currentCourse, setCurrentCourse } = useDashboard();
+
+  const handleCurrentCourse = (
+    event: SelectChangeEvent<string>
+  ) => {
+    const selected = event.target.value;
+
+    if (selected === "-1") {
+      navigate("/dashboard/create/course");
+      return;
+    }
+
+    const found = courses.find((c) => String(c.id) === selected);
+    setCurrentCourse(found ?? null);
+  };
+
 
   return (
     <>
@@ -40,7 +58,19 @@ export default function HeaderDashboard({ courses }: HeaderDashboardProps) {
             Crear curso
           </Button>
         ) : (
-          <div>{courses[0].name}</div>
+          <Select
+            size="small"
+            native
+            value={currentCourse?.id ?? ""}
+            onChange={handleCurrentCourse}
+          >
+            {courses.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+            <option value="-1">Crear curso</option>
+          </Select>
         )}
         <Paper
           sx={{

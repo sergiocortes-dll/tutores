@@ -1,11 +1,13 @@
-import { Route, BrowserRouter as Router, Routes } from 'react-router-dom'
-import Login from './(auth)/Login'
-import Create from './(dashboard)/Create'
-import Dashboard from './(dashboard)/Dashboard'
-import Layout from './_layout'
-import LayoutAuth from './_layout_auth'
-import LayoutDashboard from './_layout_dashboard'
-import './App.css'
+import { Route, BrowserRouter as Router, Routes } from 'react-router-dom';
+import Login from './(auth)/Login';
+import CreateCourse from "./(dashboard)/CreateCourse";
+import CreateStudent from './(dashboard)/CreateStudent';
+import Dashboard from './(dashboard)/Dashboard';
+import Stats from './(dashboard)/Stats';
+import Layout from './_layout';
+import LayoutAuth from './_layout_auth';
+import LayoutDashboard from './_layout_dashboard';
+import './App.css';
 
 function App() {
 
@@ -19,7 +21,9 @@ function App() {
         </Route>
         <Route path="/dashboard" element={<LayoutDashboard />}>
           <Route index element={<Dashboard />} />
-          <Route path='create' element={<Create />} />
+          <Route path='create/course' element={<CreateCourse />} />
+          <Route path="create/student" element={<CreateStudent />} />
+          <Route path="stats" element={<Stats />} />
         </Route>
       </Routes>
     </Router>
