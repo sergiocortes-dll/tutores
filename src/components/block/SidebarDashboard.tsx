@@ -7,6 +7,7 @@ import {
 import { Box, IconButton, MenuItem, Typography } from "@u_ui/u-ui";
 import { Link, useLocation } from "react-router-dom";
 import type { CourseInterface } from "../../context/DashboardContext";
+import InviteGenerator from "../auth/InviteGenerator";
 
 interface SidebarDashboardProps {
   courses: CourseInterface[];
@@ -113,6 +114,7 @@ export default function SidebarDashboard({ courses }: SidebarDashboardProps) {
           );
         })}
       </Box>
+      <InviteGenerator />
     </Box>
   );
 }

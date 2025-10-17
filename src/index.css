@@ -2,11 +2,12 @@
 
 html,
 body{
-  color-scheme: dark;
+  color-scheme: light;
 }
 
-@layer base {
+/* @layer base {
   html {
     @apply dark:bg-black;
   }
 }
+ */

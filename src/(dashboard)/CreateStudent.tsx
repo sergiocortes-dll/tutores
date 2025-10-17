@@ -1,17 +1,22 @@
 import { TextField } from "@mui/material";
 import { Avatar, Box, Button, Typography } from "@u_ui/u-ui";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useDashboard } from "../context/DashboardContext";
 import { supabase } from "../supabase";
 
 export default function CreateStudent() {
+  const navigate = useNavigate();
   const { currentCourse, refreshStudents } = useDashboard();
   const [photoUrl, setPhotoUrl] = useState<string>("");
   const [firstName, setFirstName] = useState<string>("");
   const [lastName, setLastName] = useState<string>("");
   const [cell, setCell] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>();
 
   const handleAddStudent = async () => {
+    setLoading(true);
+
     if (!firstName.trim() || !lastName.trim() || !currentCourse?.id) {
       alert("Por favor, ingresa al menos el nombre y apellido.");
       return;
@@ -29,6 +34,7 @@ export default function CreateStudent() {
 
     if (error) {
       console.error("Error añadiendo estudiante:", error);
+      setLoading(false);
       alert("Error al añadir el estudiante. Intenta nuevamente.");
       return;
     }
@@ -36,10 +42,7 @@ export default function CreateStudent() {
     // Refresca la lista de estudiantes
     await refreshStudents();
 
-    // Limpia los inputs
-    setFirstName("");
-    setLastName("");
-    setCell("");
+    navigate("/dashboard");
   };
 
   if (!currentCourse) {
@@ -47,14 +50,31 @@ export default function CreateStudent() {
   }
 
   return (
-    <Box sx={{ p: 2, maxWidth: 400 }}>
+    <Box component="form" onSubmit={(e) => {e.preventDefault();handleAddStudent();}} sx={{ p: 2, maxWidth: 400 }}>
+      <Box
+        sx={{
+          transition: ".2s ease all",
+          position: "fixed",
+          inset: 0,
+          background: "hsla(0, 0%, 0%, .2)",
+          zIndex: 99,
+          opacity: loading ? 1 : 0,
+          visibility: loading ? "visible" : "hidden",
+        }}
+      />
       <Typography variant="h6" gutterBottom>
         Añadir Estudiante al Curso: {currentCourse.name}
       </Typography>
-      <Avatar
-        src={photoUrl}
-        alt="Sergio Cortes"
-      />
+      <Box sx={{ p: 2, display: "flex", justifyContent: "center" }}>
+        <Avatar
+          sx={{
+            width: 60,
+            height: 60,
+          }}
+          src={photoUrl}
+          alt={firstName}
+        />
+      </Box>
       <TextField
         label="Link foto"
         value={photoUrl}
@@ -67,6 +87,7 @@ export default function CreateStudent() {
         value={firstName}
         onChange={(e) => setFirstName(e.target.value)}
         fullWidth
+        required
         sx={{ mb: 2 }}
       />
       <TextField
@@ -74,6 +95,7 @@ export default function CreateStudent() {
         value={lastName}
         onChange={(e) => setLastName(e.target.value)}
         fullWidth
+        required
         sx={{ mb: 2 }}
       />
       <TextField
@@ -81,12 +103,14 @@ export default function CreateStudent() {
         value={cell}
         onChange={(e) => setCell(e.target.value)}
         fullWidth
+        required
         sx={{ mb: 2 }}
       />
       <Button
         variant="contained"
-        color="primary"
-        onClick={handleAddStudent}
+        fullWidth
+        loading={loading}
+        type="submit"
       >
         Añadir Estudiante
       </Button>

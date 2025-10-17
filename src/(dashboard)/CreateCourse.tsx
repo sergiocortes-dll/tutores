@@ -4,12 +4,13 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import slugify from "slugify";
 import { useAuth } from "../context/AuthContext";
-import { useDashboard } from "../context/DashboardContext";
+import { useDashboard, type CourseInterface } from "../context/DashboardContext";
 import { supabase } from "../supabase";
 
 
 export default function CreateCourse() {
   const [courseName, setCourseName] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
   const { user } = useAuth();
   const { refreshCourses } = useDashboard();
   const navigate = useNavigate();
@@ -20,6 +21,12 @@ export default function CreateCourse() {
   };
 
   const handleCreateCourse = async () => {
+    setLoading(true);
+
+    setTimeout(() => {
+      setLoading(false);
+    }, 2000);
+
     if (!courseName.trim() || !user?.id) {
       alert("Por favor, ingresa un nombre válido para el curso.");
       return;
@@ -67,22 +74,12 @@ export default function CreateCourse() {
       return;
     }
 
-    await refreshCourses();
+    const current = data as CourseInterface[];
+
+    await refreshCourses(current);
 
     setCourseName("");
-    if (data?.[0]) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("username")
-        .eq("id", user.id)
-        .single();
-
-      if (profile?.username) {
-        navigate(`/course/${profile.username}/${data[0].slug}`);
-      } else {
-        navigate(`/course/${data[0].id}`); // Fallback a UUID si no hay username
-      }
-    }
+    navigate('/dashboard');
   };
 
   return (
@@ -94,7 +91,21 @@ export default function CreateCourse() {
         justifyContent: "center",
       }}
     >
-      <Box sx={{ width: "100%", p: 2 }}>
+      <Box
+        sx={{
+          transition: '.2s ease all',
+          position: 'fixed',
+          inset: 0,
+          background: 'hsla(0, 0%, 0%, .2)',
+          zIndex: 99,
+          opacity: loading ? 1 : 0,
+          visibility: loading ? 'visible' : 'hidden'
+        }}
+      />
+      <Box component="form" onSubmit={(e) => {
+        e.preventDefault();
+        handleCreateCourse();
+      }} sx={{ width: "100%", p: 2 }}>
         <TextField
           placeholder="Nombre del curso"
           label="Nombre del curso"
@@ -102,12 +113,16 @@ export default function CreateCourse() {
           value={courseName}
           onChange={(e) => setCourseName(e.target.value)}
           fullWidth // Opcional, para que ocupe todo el ancho
-          sx={{ mb: 2 }} // Espacio abajo para el botón
+          sx={{ mb: 2, opacity: loading ? .5 : 1 }} // Espacio abajo para el botón
+          InputProps={{
+            readOnly: loading
+          }}
         />
         <Button
           variant="contained"
           color="primary"
-          onClick={handleCreateCourse}
+          type="submit"
+          loading={loading}
         >
           Crear Curso
         </Button>

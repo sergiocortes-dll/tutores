@@ -1,23 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { supabase } from "../supabase"; // Asegúrate de importar tu cliente Supabase
-import { useAuth } from "./AuthContext"; // Asumiendo que tienes AuthContext con user
-
-export interface CourseInterface {
-  id: string; // Cambiado a string para UUID
-  name: string;
-  owner_id: string; // Cambiado a string para UUID
-  created_at: string; // TIMESTAMP como string, o usa Date si parseas
-  slug: string; // Agrega slug
-}
-
-export interface StudentInterface {
-  id: string;
-  first_name: string;
-  last_name: string;
-  cell: string | null;
-  photo_url: string;
-  course_id: string;
-}
+import { useAuth } from "../context/AuthContext"; // Para user
+import { supabase } from "../supabase";
+import { type CourseInterface, type StudentInterface } from "../types"; // Asegúrate de tener estas interfaces
 
 interface DashboardContextType {
   courses: CourseInterface[];
@@ -35,98 +19,135 @@ const DashboardContext = createContext<DashboardContextType | undefined>(
 export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const { user } = useAuth(); // Obtén el user del AuthContext
+  const { user } = useAuth();
   const [courses, setCourses] = useState<CourseInterface[]>([]);
   const [currentCourse, setCurrentCourse] = useState<CourseInterface | null>(
     null
   );
   const [students, setStudents] = useState<StudentInterface[]>([]);
 
-  // Función para cargar todos los cursos del usuario (propios + compartidos)
   const refreshCourses = async () => {
     if (!user?.id) return;
 
-    // Fetch owned courses
-    const { data: owned, error: ownedError } = await supabase
-      .from("courses")
-      .select("*")
-      .eq("owner_id", user.id)
-      .order("created_at", { ascending: false });
-
-    if (ownedError) {
-      console.error("Error fetching owned courses:", ownedError);
-    }
-
-    // Fetch shared course IDs
-    const { data: sharedIds, error: sharedError } = await supabase
-      .from("course_shares")
-      .select("course_id")
-      .eq("user_id", user.id);
-
-    if (sharedError) {
-      console.error("Error fetching shared IDs:", sharedError);
-    }
-
-    let shared: CourseInterface[] = [];
-    const safeSharedIds = sharedIds ?? [];
-    if (safeSharedIds.length > 0) {
-      const courseIds = safeSharedIds.map((s) => s.course_id);
-      const { data: sharedCourses, error: sharedCoursesError } = await supabase
+    try {
+      // Fetch owned courses
+      const { data: owned, error: ownedError } = await supabase
         .from("courses")
         .select("*")
-        .in("id", courseIds)
+        .eq("owner_id", user.id)
         .order("created_at", { ascending: false });
 
-      if (sharedCoursesError) {
-        console.error("Error fetching shared courses:", sharedCoursesError);
-      } else {
-        shared = sharedCourses || [];
+      if (ownedError) {
+        console.error("Error fetching owned courses:", ownedError);
+        return;
       }
-    }
 
-    // Combina y elimina duplicates (por si owner se comparte a sí mismo)
-    const allCourses = [...(owned || []), ...shared];
-    const uniqueCourses = allCourses.filter(
-      (course, index, self) =>
-        index === self.findIndex((c) => c.id === course.id)
-    );
+      // Fetch all shares for the user, including coder permissions
+      const { data: shares, error: sharesError } = await supabase
+        .from("course_shares")
+        .select("course_id, permission, student_id")
+        .eq("user_id", user.id);
 
-    setCourses(uniqueCourses);
-    // Si no hay curso actual, setea el primero por default
-    if (!currentCourse && uniqueCourses.length > 0) {
-      setCurrentCourse(uniqueCourses[0]);
+      if (sharesError) {
+        console.error("Error fetching shares:", sharesError);
+        return;
+      }
+
+      let sharedCourses: CourseInterface[] = [];
+      if (shares?.length > 0) {
+        const courseIds = shares.map((s) => s.course_id);
+        const { data: sharedCoursesData, error: sharedCoursesError } =
+          await supabase
+            .from("courses")
+            .select("*")
+            .in("id", courseIds)
+            .order("created_at", { ascending: false });
+
+        if (sharedCoursesError) {
+          console.error("Error fetching shared courses:", sharedCoursesError);
+        } else {
+          sharedCourses = sharedCoursesData || [];
+        }
+      }
+
+      // Combine owned and shared courses, filter duplicates
+      const allCourses = [...(owned || []), ...sharedCourses];
+      const uniqueCourses = allCourses.filter(
+        (course, index, self) =>
+          index === self.findIndex((c) => c.id === course.id)
+      );
+
+      setCourses(uniqueCourses);
+      if (!currentCourse && uniqueCourses.length > 0) {
+        setCurrentCourse(uniqueCourses[0]);
+      } else if (uniqueCourses.length === 0 && currentCourse) {
+        setCurrentCourse(null); // Clear if no courses available
+      }
+    } catch (error) {
+      console.error("Unexpected error in refreshCourses:", error);
     }
   };
 
-  // Función para cargar estudiantes del curso actual
   const refreshStudents = async () => {
     if (!currentCourse?.id) {
       setStudents([]);
       return;
     }
 
-    const { data, error } = await supabase
-      .from("students")
-      .select("*")
-      .eq("course_id", currentCourse.id)
-      .order("last_name", { ascending: true });
+    try {
+      // Fetch user's share for this course to determine permission and student_id
+      const { data: share, error: shareError } = await supabase
+        .from("course_shares")
+        .select("permission, student_id")
+        .eq("course_id", currentCourse.id)
+        .eq("user_id", user?.id)
+        .single();
 
-    if (error) {
-      console.error("Error fetching students:", error);
-      return;
+      if (shareError && shareError.code !== "PGRST116") {
+        console.error("Error fetching share:", shareError);
+        return;
+      }
+
+      let query = supabase
+        .from("students")
+        .select("*")
+        .eq("course_id", currentCourse.id);
+
+      // If user is coder, filter by assigned student_id
+      if (share?.permission === "coder" && share.student_id) {
+        query = query.eq("id", share.student_id);
+        console.log(
+          "Filtering students for coder, student_id:",
+          share.student_id
+        );
+      } else if (!share && currentCourse.owner_id !== user?.id) {
+        console.log("No share found and not owner, clearing students");
+        setStudents([]);
+        return;
+      }
+
+      const { data, error } = await query.order("last_name", {
+        ascending: true,
+      });
+
+      if (error) {
+        console.error("Error fetching students:", error);
+        return;
+      }
+
+      setStudents(data || []);
+      console.log("Students fetched:", data);
+    } catch (error) {
+      console.error("Unexpected error in refreshStudents:", error);
     }
-
-    setStudents(data || []);
   };
 
-  // Carga cursos al montar o cuando user cambia
   useEffect(() => {
     if (user) {
       refreshCourses();
     }
   }, [user]);
 
-  // Carga estudiantes cuando currentCourse cambia
   useEffect(() => {
     refreshStudents();
   }, [currentCourse]);

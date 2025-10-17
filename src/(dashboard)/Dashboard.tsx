@@ -27,19 +27,21 @@ export default function Dashboard() {
       <Typography variant="h4" gutterBottom>
         Lista de Estudiantes
       </Typography>
-      <Button
-        component={Link}
-        to="/dashboard/create/student"
-        startIcon={<Add />}
-        size="small"
-        sx={{ py: 1, gap: 0.5, lineHeight: 1 }}
-        disableIconAnimation
-        variant="contained"
-      >
-        Añadir estudiante
-      </Button>
+      <Box sx={{ mb: 2}}>
+        <Button
+          component={Link}
+          to="/dashboard/create/student"
+          endIcon={<Add />}
+          size="small"
+          sx={{ py: 1, gap: 0.5, lineHeight: 1 }}
+          disableIconAnimation
+          variant="contained"
+        >
+          Añadir estudiante
+        </Button>
+      </Box>
       {students.length === 0 ? (
-        <Typography>No hay estudiantes disponibles.</Typography>
+        <Typography>¿No ves estudiantes? ¡Agrega uno!</Typography>
       ) : (
         <List>
           {students.map((student) => (
